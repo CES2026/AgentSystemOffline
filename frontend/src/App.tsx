@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { ChatContainer } from './components/ChatContainer';
 import { OrderInfo } from './components/OrderInfo';
