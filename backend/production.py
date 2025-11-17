@@ -114,9 +114,11 @@ def build_queue_snapshot(orders: List[Dict], reference_time: Optional[datetime] 
             completed_orders=[],
         )
 
+    # 使用降序排列，确保最新的订单在前面
     sorted_orders = sorted(
         orders,
-        key=lambda order: _parse_datetime(order["created_at"]) if isinstance(order.get("created_at"), str) else order.get("created_at", now)
+        key=lambda order: _parse_datetime(order["created_at"]) if isinstance(order.get("created_at"), str) else order.get("created_at", now),
+        reverse=True
     )
     progress_map: Dict[int, OrderProgressResponse] = {}
     for order in sorted_orders:
