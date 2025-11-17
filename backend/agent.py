@@ -236,6 +236,7 @@ class TeaOrderAgent:
                 temperature=config.OPENAI_TEMPERATURE,
                 tools=self.tools,
                 tool_choice="auto"
+                # 注意：不能同时使用 response_format + tools，某些 provider 不支持
             )
 
             message = response.choices[0].message
@@ -252,7 +253,44 @@ class TeaOrderAgent:
             if not message.content:
                 raise ValueError("LLM 返回空内容")
 
-            result = json.loads(message.content)
+            # 尝试解析 JSON（可能包裹在 ```json 或其他文本中）
+            content = message.content.strip()
+
+            # 提取 JSON 部分
+            json_str = content
+            if "```json" in content:
+                # 提取 ```json ... ``` 之间的内容
+                start = content.find("```json") + 7
+                end = content.find("```", start)
+                if end > start:
+                    json_str = content[start:end].strip()
+            elif "```" in content:
+                # 提取 ``` ... ``` 之间的内容
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                if end > start:
+                    json_str = content[start:end].strip()
+            elif content.startswith("{") and content.endswith("}"):
+                # 看起来像纯 JSON
+                json_str = content
+            else:
+                # 尝试找到 { ... } 结构
+                start_idx = content.find("{")
+                end_idx = content.rfind("}")
+                if start_idx >= 0 and end_idx > start_idx:
+                    json_str = content[start_idx:end_idx+1]
+
+            try:
+                result = json.loads(json_str)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"JSON 解析失败。原始内容: {content[:500]}")
+                logger.error(f"提取的 JSON: {json_str[:500]}")
+                raise ValueError(f"JSON 解析失败: {json_err}")
+
+            # 验证必需字段
+            if "assistant_reply" not in result or "order_state" not in result or "action" not in result:
+                logger.error(f"JSON 缺少必需字段。解析结果: {result}")
+                raise ValueError("JSON 缺少必需字段（assistant_reply, order_state, action）")
 
             # 构建 AgentResponse
             agent_response = AgentResponse(
@@ -265,6 +303,7 @@ class TeaOrderAgent:
             return agent_response
 
         except Exception as e:
+            logger.error(f"LLM 调用异常: {type(e).__name__}: {e}", exc_info=True)
             logger.warning("LLM 调用失败，切换离线模式：%s", e)
             return self._offline_response(
                 user_text=user_text,
