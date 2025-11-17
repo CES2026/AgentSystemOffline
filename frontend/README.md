@@ -53,8 +53,10 @@ src/
 │   ├── Message.tsx          # 消息组件
 │   ├── ModeSelector.tsx     # 模式选择器
 │   ├── OrderInfo.tsx        # 订单信息展示
+│   ├── ProductionBoard.tsx  # 排队面板（展示所有订单状态）
 │   ├── TextInput.tsx        # 文本输入
-│   └── VoiceInput.tsx       # 语音输入
+│   ├── VoiceInput.tsx       # 语音输入
+│   └── ProgressAgent.tsx    # 制作进度助手
 ├── hooks/              # 自定义 Hooks
 │   └── useAudioRecorder.ts  # 音频录制
 ├── services/           # API 服务
@@ -167,6 +169,7 @@ await ApiService.getOrder(orderId);
 
 ```env
 VITE_API_URL=http://localhost:8000
+VITE_MODEL_BADGE="OpenRouter · Llama 3.3 70B"
 ```
 
 ### Vite 配置

@@ -5,11 +5,13 @@
 ## ✨ 特性
 
 - 🎤 **语音输入**：集成 AssemblyAI 实现语音转文本
-- 💬 **智能对话**：使用 GPT-4 实现自然语言交互
+- 💬 **智能对话**：使用 OpenRouter · Llama 3.3 70B 实现自然语言交互
 - 📝 **文本输入**：支持文字输入模式（方便测试和使用）
 - 🗄️ **订单管理**：SQLite 数据库存储订单
 - 🎨 **简洁界面**：响应式 Web 界面
 - 📊 **会话管理**：保持对话上下文，支持多轮对话
+- 📟 **排队面板**：全局展示正在制作 / 已完成的订单，实时 WebSocket 推送
+- 💰 **实时报价**：确认订单后自动计算金额，并在前端展示
 
 ## 🏗️ 系统架构
 
@@ -27,7 +29,7 @@
 │  │  AssemblyAI (STT)    │  │  语音转文本
 │  └──────────────────────┘  │
 │  ┌──────────────────────┐  │
-│  │  LLM Agent (GPT-4)   │  │  智能对话
+│  │  LLM Agent (OpenRouter · Llama 3.3 70B) │  │  智能对话
 │  └──────────────────────┘  │
 │  ┌──────────────────────┐  │
 │  │  会话管理器          │  │  状态管理
@@ -92,11 +94,18 @@ cp .env.example .env
 编辑 `.env` 文件：
 
 ```env
-# AssemblyAI API Key
+# AssemblyAI
 ASSEMBLYAI_API_KEY=your_assemblyai_api_key_here
 
-# OpenAI API Key
-OPENAI_API_KEY=your_openai_api_key_here
+# OpenRouter（优先）
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
+OPENROUTER_SITE_URL=https://your-site-url.example.com
+OPENROUTER_SITE_NAME=Tea Order Agent
+ASSEMBLYAI_TTS_VOICE=alloy
+
+# 兼容 OpenAI（如需）
+OPENAI_API_KEY=
 
 # Database
 DATABASE_PATH=./tea_orders.db
@@ -106,9 +115,10 @@ HOST=0.0.0.0
 PORT=8000
 ```
 
-**获取 API Keys：**
-- AssemblyAI: https://www.assemblyai.com/ （注册后获取）
-- OpenAI: https://platform.openai.com/ （需要 GPT-4 访问权限）
+**获取 / 配置说明：**
+- AssemblyAI: https://www.assemblyai.com/
+- OpenRouter: https://openrouter.ai/keys （申请 key 并确保账户余额足够，开启 Llama 3.3 70B 可用的 provider）
+- OpenAI: https://platform.openai.com/ （兼容用途，可留空）
 
 ### 4. 启动服务
 
@@ -134,6 +144,13 @@ pnpm dev
 服务启动后，访问：
 - 前端页面：http://localhost:3000
 - API 文档：http://localhost:8000/docs
+- 进度接口：`GET /orders/{order_id}/status` 可查询制作阶段、ETA，供前端播报 Agent 使用
+- 进度历史（按订单）：`GET /orders/{order_id}/progress-history` 返回点餐完成后的播报对话
+- 进度历史（按会话）：`GET /progress/history/{session_id}` 返回“制作进度助手”在该会话下的对话
+- WebSocket 进度推送：`ws://<host>/ws/orders/{order_id}/status`
+- 进度问答接口：`POST /orders/{order_id}/progress-chat`（兼容旧版按订单）与 `POST /progress/chat`（按会话，支持自由提问队列状态），都交给同款 LLM
+- 排队面板接口：`GET /production/queue` / `ws://<host>/ws/production/queue`
+- TTS 接口：`POST /tts` 调用 AssemblyAI 合成语音
 
 ### 5. 使用系统
 
@@ -156,6 +173,15 @@ AI：好的！为您下单：大杯乌龙奶茶，三分糖，去冰，加珍珠
 
 用户：确认
 AI：好的，订单已确认！订单号：#1
+
+### 实时语音 & 制作进度助手示例
+
+前端通过 `/ws/stt` 与 AssemblyAI 建立实时语音通道，边说话边转录，识别完成后自动触发文本对话；确认下单后，新的“制作进度助手”通过 WebSocket 接收实时进度；同时前端顶端的取号面板展示所有订单的排队/制作/封杯状态，播报 Agent 的回答完全基于这些数据，再输入到同款 LLM：
+
+```
+用户：还要多久？
+助手：订单 #12 正在进行「制作中」，预计约 2 分钟后完成。后续流程：封杯打包 → 可取餐。
+```
 ```
 
 #### 方式二：使用 API（测试/集成）
