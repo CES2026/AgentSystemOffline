@@ -13,7 +13,8 @@ if [ ! -f .env ]; then
     echo ""
     echo "需要配置："
     echo "  - ASSEMBLYAI_API_KEY: https://www.assemblyai.com/"
-    echo "  - OPENAI_API_KEY: https://platform.openai.com/"
+    echo "  - OPENROUTER_API_KEY: https://openrouter.ai/keys"
+    echo "  - （可选）OPENAI_API_KEY: https://platform.openai.com/"
     echo ""
     read -p "按回车键继续（请确保已配置 API Keys）..."
 fi
