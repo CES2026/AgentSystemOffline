@@ -154,6 +154,10 @@ async def _process_text(session_id: str, user_text: str) -> TalkResponse:
         # 在回复中添加订单号
         agent_response.assistant_reply += f" 订单号：#{order_id}"
 
+        # 重置 order_state，避免后续被重复保存
+        from .models import OrderState
+        session_manager.update_order_state(session_id, OrderState())
+
     elif agent_response.action == AgentAction.CONFIRM:
         session_manager.update_status(session_id, OrderStatus.CONFIRMING)
     else:
