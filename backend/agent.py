@@ -93,11 +93,11 @@ class TeaOrderAgent:
    - 加料：{', '.join(TOPPING_OPTIONS)}
 
 4. **工具使用**（重要）：
-   当顾客询问订单进度或排队情况时，你必须调用工具获取实时数据：
-   - 询问具体订单进度时（例如"订单 #5 做好了吗"），调用 get_order_status(order_id)
+   当顾客询问订单进度或排队情况时，你**必须**调用工具获取实时数据，**不要**编造或猜测进度信息：
+   - 询问具体订单进度时（例如"订单 #5 做好了吗"、"查一下我的订单"），调用 get_order_status(order_id)
    - 询问全局排队情况时（例如"现在队伍排到哪了"），调用 get_all_orders_queue()
    - 调用工具后，根据返回的数据用自然语言回答顾客
-   - 如果顾客说"我的订单"但没有提供订单号，礼貌询问订单号
+   - 如果顾客说"我的订单"但没有提供订单号，且当前 order_state.is_complete=false（正在点单），说明是在询问刚下的订单，礼貌询问订单号
 
 5. **收集信息**（点单时）：
    当顾客要点单时，收集以下订单信息：
@@ -118,6 +118,8 @@ class TeaOrderAgent:
    - 顾客确认后，明确表示订单已完成
 
 7. **输出格式**：
+
+   **点单模式**（顾客正在点单时）：
    你必须返回 JSON 格式，包含三个字段：
    - assistant_reply: 给顾客的回复（中文字符串）
    - order_state: 当前订单状态（JSON 对象）
@@ -127,6 +129,10 @@ class TeaOrderAgent:
    - "ask_more": 信息未收集齐全，继续询问
    - "confirm": 信息已齐全，复述订单等待顾客确认
    - "save_order": 顾客已确认，可以保存订单
+
+   **查询模式**（顾客询问进度时）：
+   - 调用 get_order_status() 或 get_all_orders_queue() 工具
+   - 工具会返回实时进度数据，你不需要返回 JSON，只需在工具调用后用自然语言回复顾客
 
    order_state 的格式：
    {{
@@ -353,7 +359,20 @@ class TeaOrderAgent:
                 "content": json.dumps(result, ensure_ascii=False)
             })
 
-        # 让 LLM 根据工具结果生成最终回复
+        # 让 LLM 根据工具结果生成最终回复（用自然语言包装工具返回的数据）
+        # 添加明确的指示，要求返回标准 JSON 格式
+        messages.append({
+            "role": "system",
+            "content": """基于工具返回的数据，用自然语言回复顾客。
+
+必须返回 JSON 格式：
+{
+    "assistant_reply": "用自然语言描述工具返回的信息，例如订单进度、排队情况等",
+    "order_state": 当前订单状态（如果顾客正在点单则更新，否则保持原状态）,
+    "action": "ask_more"（查询进度时默认使用 ask_more）
+}"""
+        })
+
         final_response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -365,7 +384,27 @@ class TeaOrderAgent:
         if not final_content:
             raise ValueError("工具调用后 LLM 返回空内容")
 
-        result = json.loads(final_content)
+        # 使用增强的 JSON 提取逻辑
+        content = final_content.strip()
+        json_str = content
+        if "```json" in content:
+            start = content.find("```json") + 7
+            end = content.find("```", start)
+            if end > start:
+                json_str = content[start:end].strip()
+        elif content.startswith("{") and content.endswith("}"):
+            json_str = content
+        else:
+            start_idx = content.find("{")
+            end_idx = content.rfind("}")
+            if start_idx >= 0 and end_idx > start_idx:
+                json_str = content[start_idx:end_idx+1]
+
+        try:
+            result = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"工具调用后 JSON 解析失败。原始内容: {final_content[:500]}")
+            raise ValueError(f"工具调用后 JSON 解析失败: {e}")
 
         return AgentResponse(
             assistant_reply=result["assistant_reply"],
