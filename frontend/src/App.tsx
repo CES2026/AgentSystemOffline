@@ -146,26 +146,6 @@ function App() {
     }
   };
 
-  const handleSendAudio = async (audioBlob: Blob) => {
-    if (isProcessing) return;
-
-    setStatus('正在识别语音...');
-    setIsProcessing(true);
-
-    try {
-      const response = await ApiService.sendAudio(sessionId, audioBlob);
-      applyAgentResponse(response);
-    } catch (error) {
-      console.error('Error sending audio:', error);
-      setStatus('语音识别失败，请重试');
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '抱歉，语音识别失败，请重试。', mode: 'offline' },
-      ]);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleReset = async () => {
     if (!confirm('确定要重新开始吗？当前订单信息将被清除。')) {
@@ -233,7 +213,6 @@ function App() {
                   <TextInput onSend={handleSendText} disabled={isProcessing} />
                 ) : (
               <VoiceInput
-                onAudioReady={handleSendAudio}
                 onTranscript={(text) => handleSendText(text)}
                 disabled={isProcessing}
               />

@@ -1,13 +1,12 @@
-import { Mic, Upload } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface VoiceInputProps {
-  onAudioReady: (audioBlob: Blob) => void;
   onTranscript?: (text: string) => void;
   disabled?: boolean;
 }
 
-export function VoiceInput({ onAudioReady, onTranscript, disabled }: VoiceInputProps) {
+export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partial, setPartial] = useState('');
@@ -110,14 +109,6 @@ export function VoiceInput({ onAudioReady, onTranscript, disabled }: VoiceInputP
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onAudioReady(file);
-      e.target.value = ''; // 重置文件输入
-    }
-  };
-
   useEffect(() => {
     return () => {
       stopStreaming();
@@ -151,26 +142,6 @@ export function VoiceInput({ onAudioReady, onTranscript, disabled }: VoiceInputP
       {error && (
         <div className="text-sm text-red-600">{error}</div>
       )}
-
-      <div className="relative">
-        <input
-          type="file"
-          accept="audio/*"
-          onChange={handleFileUpload}
-          disabled={disabled}
-          className="hidden"
-          id="audio-upload"
-        />
-        <label
-          htmlFor="audio-upload"
-          className={`flex cursor-pointer items-center gap-2 rounded-lg bg-gray-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-600 ${
-            disabled ? 'cursor-not-allowed opacity-50' : ''
-          }`}
-        >
-          <Upload className="h-4 w-4" />
-          或上传音频文件
-        </label>
-      </div>
     </div>
   );
 }

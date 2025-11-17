@@ -33,26 +33,6 @@ export class ApiService {
   }
 
   /**
-   * 发送语音文件
-   */
-  static async sendAudio(sessionId: string, audioBlob: Blob): Promise<TalkResponse> {
-    const formData = new FormData();
-    formData.append('session_id', sessionId);
-    formData.append('audio', audioBlob, 'audio.webm');
-
-    const response = await fetch(`${API_BASE_URL}/talk`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to send audio');
-    }
-
-    return response.json();
-  }
-
-  /**
    * 重置会话
    */
   static async resetSession(sessionId: string): Promise<void> {
