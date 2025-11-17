@@ -1,13 +1,11 @@
 """FastAPI 后端主服务"""
-import os
-import uuid
 import asyncio
 from contextlib import asynccontextmanager
 import json
 import websockets
 import httpx
 import re
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from typing import Optional, Tuple
@@ -29,7 +27,6 @@ from .models import (
 )
 from .database import db
 from .session_manager import session_manager
-from .stt import stt_client
 from .agent import tea_agent
 from .production import build_order_progress, build_queue_snapshot, find_progress_in_snapshot
 from .progress_agent import progress_agent
@@ -40,7 +37,6 @@ async def lifespan(app: FastAPI):
     """应用生命周期"""
     print("🚀 Tea Order Agent System 启动成功！")
     print(f"📊 数据库路径: {config.DATABASE_PATH}")
-    print(f"📁 上传目录: {config.UPLOAD_DIR}")
     yield
 
 
@@ -60,9 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 确保上传目录存在
-os.makedirs(config.UPLOAD_DIR, exist_ok=True)
 
 PROGRESS_KEYWORDS = [
     "进度",
@@ -156,8 +149,8 @@ async def root():
         "message": "Tea Order Agent System API",
         "version": "1.0.0",
         "endpoints": {
-            "POST /talk": "处理语音输入并返回 Agent 响应",
-            "POST /text": "处理文本输入（测试用）",
+            "WS /ws/stt": "实时语音识别 WebSocket",
+            "POST /text": "处理文本输入",
             "GET /orders/{order_id}": "查询订单",
             "GET /orders": "查询所有订单",
             "GET /session/{session_id}": "查询会话状态",
@@ -176,60 +169,12 @@ async def health():
     except Exception as exc:
         db_status = f"error: {exc}"
 
-    upload_dir_ready = os.path.isdir(config.UPLOAD_DIR)
-    status = "healthy" if db_status == "ok" and upload_dir_ready else "degraded"
+    status = "healthy" if db_status == "ok" else "degraded"
 
     return {
         "status": status,
-        "database": db_status,
-        "upload_dir_ready": upload_dir_ready
+        "database": db_status
     }
-
-
-@app.post("/talk", response_model=TalkResponse)
-async def talk(
-    audio: UploadFile = File(...),
-    session_id: str = Form(...)
-):
-    """
-    处理语音输入的核心接口
-
-    1. 上传音频文件
-    2. AssemblyAI 转文本
-    3. LLM Agent 处理
-    4. 更新会话状态
-    5. 必要时保存订单
-    """
-    try:
-        # 1. 保存上传的音频文件
-        file_extension = os.path.splitext(audio.filename)[1]
-        temp_filename = f"{uuid.uuid4()}{file_extension}"
-        temp_filepath = os.path.join(config.UPLOAD_DIR, temp_filename)
-
-        with open(temp_filepath, "wb") as f:
-            content = await audio.read()
-            f.write(content)
-
-        # 2. 使用 AssemblyAI 转录
-        try:
-            user_text = await stt_client.transcribe_file(temp_filepath)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"语音转文本失败: {str(e)}")
-        finally:
-            # 清理临时文件
-            if os.path.exists(temp_filepath):
-                os.remove(temp_filepath)
-
-        if not user_text:
-            raise HTTPException(status_code=400, detail="无法识别语音内容")
-
-        # 3. 处理文本（与 /text 接口共用逻辑）
-        return await _process_text(session_id, user_text)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 
 @app.post("/text", response_model=TalkResponse)

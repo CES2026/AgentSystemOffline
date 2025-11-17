@@ -194,13 +194,9 @@ curl -X POST "http://localhost:8000/text" \
   -F "text=我要一杯大杯乌龙奶茶，三分糖，去冰"
 ```
 
-**语音输入接口：**
+**实时语音识别：**
 
-```bash
-curl -X POST "http://localhost:8000/talk" \
-  -F "session_id=test_session_123" \
-  -F "audio=@/path/to/audio.wav"
-```
+通过 WebSocket 连接 `ws://localhost:8000/ws/stt` 进行实时语音识别，详见前端 VoiceInput 组件实现。
 
 **查询订单：**
 
@@ -406,7 +402,7 @@ curl -X POST "http://localhost:8000/text" \
 
 | 接口 | 方法 | 说明 |
 |-----|------|-----|
-| `/talk` | POST | 处理语音输入 |
+| `/ws/stt` | WebSocket | 实时语音识别 |
 | `/text` | POST | 处理文本输入 |
 | `/orders/{order_id}` | GET | 查询订单 |
 | `/orders` | GET | 查询所有订单 |
@@ -437,16 +433,18 @@ curl -X POST "http://localhost:8000/text" \
 
 ### 后端问题
 
-#### 1. AssemblyAI 转录失败
+#### 1. 实时语音识别失败
 
-- 检查 API Key 是否正确
-- 确认音频格式支持（建议使用 WAV、MP3、WebM）
+- 检查 AssemblyAI API Key 是否正确
+- 确认麦克风权限已授予
 - 查看 AssemblyAI 账户余额
+- 检查 WebSocket 连接是否正常
 
-#### 2. OpenAI API 调用失败
+#### 2. OpenRouter API 调用失败
 
-- 检查 API Key 是否正确
-- 确认是否有 GPT-4 访问权限（可降级使用 `gpt-3.5-turbo`）
+- 检查 OPENROUTER_API_KEY 是否正确
+- 确认账户余额充足
+- 验证模型 (meta-llama/llama-3.3-70b-instruct) 可用
 - 检查网络连接
 
 #### 3. 数据库错误

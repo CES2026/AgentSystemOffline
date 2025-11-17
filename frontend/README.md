@@ -151,8 +151,8 @@ const audioBlob = await toggleRecording();
 // 发送文本
 await ApiService.sendText(sessionId, text);
 
-// 发送语音
-await ApiService.sendAudio(sessionId, audioBlob);
+// 实时语音识别通过 WebSocket
+// 详见 VoiceInput 组件实现 (ws://host/ws/stt)
 
 // 重置会话
 await ApiService.resetSession(sessionId);

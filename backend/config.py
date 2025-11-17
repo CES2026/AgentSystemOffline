@@ -34,9 +34,5 @@ class Config:
     # Session
     MAX_HISTORY_LENGTH = 10  # 最多保存 10 轮对话
 
-    # Upload
-    UPLOAD_DIR = "./uploads"
-    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
-
 
 config = Config()
