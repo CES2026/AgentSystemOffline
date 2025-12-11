@@ -1,5 +1,7 @@
 # Modal.com 部署指南
 
+> **说明**：此指南现在存放在 `vllm-workspace/docs/`，所有命令假定你已经切换到 `vllm-workspace/` 根目录（或从此目录上级进入），以便 `modal/`、`scripts/`、`tools/` 分别可见。
+
 本指南将帮助您将茶饮点单系统后端部署到 Modal.com。
 
 ## 前置要求

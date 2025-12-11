@@ -8,6 +8,8 @@ set -e
 echo "🚀 部署 vLLM 70B 到 Modal (OpenRouter 备选)"
 echo "==========================================="
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 # 检查 modal 是否已安装
 if ! command -v modal &> /dev/null; then
     echo "❌ Modal CLI 未安装，正在安装..."
@@ -30,7 +32,7 @@ if ! modal secret list | grep -q "vllm-secrets"; then
 fi
 
 echo "✅ 环境检查通过，开始部署 vLLM ..."
-modal deploy modal_vllm.py
+modal deploy "$ROOT_DIR/modal/modal_vllm.py"
 
 echo ""
 echo "✅ vLLM 部署完成"
