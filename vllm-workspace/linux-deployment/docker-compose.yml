@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # vLLM 服务器（INT4 量化）
+  vllm-server:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.vllm
+    image: vllm-server:llama-70b-int4
+    container_name: vllm-server
+
+    # GPU 配置
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1  # INT4 量化版本只需要 1 个 GPU
+              capabilities: [gpu]
+
+    # 环境变量
+    environment:
+      - VLLM_MODEL=${VLLM_MODEL:-casperhansen/llama-3.1-70b-instruct-awq}
+      - VLLM_PORT=8000
+      - VLLM_HOST=0.0.0.0
+      - VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-8192}
+      - VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
+      - VLLM_TENSOR_PARALLEL=${VLLM_TENSOR_PARALLEL:-1}
+      - VLLM_QUANTIZATION=awq
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      - HF_HOME=/models
+
+    # 卷挂载
+    volumes:
+      - vllm-models:/models  # 模型缓存（持久化）
+      - ./config:/config:ro  # 配置文件（只读）
+
+    # 端口映射（内网访问）
+    ports:
+      - "8000:8000"
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s  # 首次启动需要下载模型，给 5 分钟
+
+    # 重启策略
+    restart: unless-stopped
+
+    # 共享内存（提升性能）
+    shm_size: '16gb'
+
+    networks:
+      - vllm-network
+
+  # FastAPI Wrapper 服务
+  fastapi-wrapper:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.wrapper
+    image: vllm-wrapper:latest
+    container_name: vllm-wrapper
+
+    # 依赖 vLLM 服务器
+    depends_on:
+      vllm-server:
+        condition: service_healthy
+
+    # 环境变量
+    environment:
+      - VLLM_BASE_URL=http://vllm-server:8000/v1
+      - VLLM_MODEL=${VLLM_MODEL:-casperhansen/llama-3.1-70b-instruct-awq}
+      - VLLM_API_KEY=${VLLM_SERVER_API_KEY:-}
+      - VLLM_WRAPPER_HOST=0.0.0.0
+      - VLLM_WRAPPER_PORT=8001
+      - VLLM_WRAPPER_API_KEY=${VLLM_WRAPPER_API_KEY:-}
+      - VLLM_DEFAULT_MAX_TOKENS=${VLLM_DEFAULT_MAX_TOKENS:-2048}
+      - VLLM_DEFAULT_TEMPERATURE=${VLLM_DEFAULT_TEMPERATURE:-0.7}
+
+    # 端口映射（主要访问接口）
+    ports:
+      - "8001:8001"
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    # 重启策略
+    restart: unless-stopped
+
+    networks:
+      - vllm-network
+
+# 网络配置
+networks:
+  vllm-network:
+    driver: bridge
+
+# 卷配置
+volumes:
+  vllm-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VLLM_MODEL_CACHE_PATH:-./models}  # 可配置模型缓存路径

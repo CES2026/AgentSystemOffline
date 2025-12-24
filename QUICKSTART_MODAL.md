@@ -1,122 +1,80 @@
-# 🚀 快速部署到 Modal.com
+# 🚀 Quick Deploy to Modal.com
 
-5 分钟内将茶饮点单系统部署到云端！
+Push the tea-order agent to Modal within minutes.
 
-## 第一步：安装 Modal
+## Step 1: Install Modal
 
 ```bash
 pip install modal
 ```
 
-## 第二步：登录 Modal
+## Step 2: Log in
 
 ```bash
 modal token new
 ```
 
-这会打开浏览器完成认证。
+A browser window opens for authentication.
 
-## 第三步：创建 Secret
+## Step 3: Create Secrets
 
-1. 访问 https://modal.com/secrets
-2. 点击 **Create Secret**
-3. 名称填写：`tea-agent-secrets`
-4. 添加环境变量：
+Go to https://modal.com/secrets and create a secret named `tea-agent-secrets` with:
 
 ```
-ASSEMBLYAI_API_KEY=你的AssemblyAI密钥
-OPENROUTER_API_KEY=你的OpenRouter密钥
+ASSEMBLYAI_API_KEY=your-assemblyai-key
+OPENROUTER_API_KEY=your-openrouter-key
 ```
 
-## 第四步：一键部署
+Optional extras for fine tuning:
 
-### 方式 1：使用部署脚本（推荐）
+```
+OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
+OPENROUTER_SITE_URL=https://your-site.example.com
+OPENROUTER_SITE_NAME=Tea Order Agent
+ASSEMBLYAI_TTS_VOICE=alloy
+OPENAI_TEMPERATURE=0.7
+```
 
+## Step 4: Deploy the Backend
+
+### Recommended
 ```bash
 ./deploy.sh
 ```
 
-### 方式 2：手动部署
-
+### Manual
 ```bash
 modal deploy modal_app.py
 ```
 
-### 额外：部署 vLLM 70B 备选（OpenRouter 降级用）
+## Step 5: Bonus - vLLM Backup
+
+To add the Modal-hosted vLLM 70B fallback:
 
 ```bash
 cd vllm-workspace
 ./scripts/deploy_vllm.sh
-# 或
+# or
 modal deploy modal/modal_vllm.py
 ```
 
-部署完成后，将返回的 URL（形如 `https://<你>--vllm-llama70b-serve-vllm.modal.run/v1`）填入 `.env` 的 `VLLM_BASE_URL`。默认请求 2×A100-80G，如需下调请同步调节 `VLLM_GPU_COUNT` / `VLLM_TENSOR_PARALLEL`。
+Copy the returned `https://.../v1` URL into `.env` as `VLLM_BASE_URL` and set `VLLM_API_KEY` if required.
 
-## 第五步：获取 URL
+## Step 6: Configure Frontend
 
-部署成功后，你会看到类似这样的输出：
-
-```
-✓ Created web function fastapi_app => https://your-username--tea-order-agent-fastapi-app.modal.run
-```
-
-**复制这个 URL！**
-
-## 第六步：配置前端
-
-在 `frontend/.env` 文件中添加：
+Set the API URL in `frontend/.env`:
 
 ```env
 VITE_API_URL=https://your-username--tea-order-agent-fastapi-app.modal.run
 ```
 
-## 完成！🎉
+## Step 7: Validate
 
-现在访问前端应用，它会自动连接到 Modal 上的后端。
+- Open `https://your-username--tea-order-agent-fastapi-app.modal.run` to view API welcome.
+- Check `/health` and the frontend at http://localhost:3000 (when running locally).
 
----
-
-## 常用命令
-
-### 查看日志
-```bash
-modal app logs tea-order-agent --follow
-```
-
-### 查看应用列表
-```bash
-modal app list
-```
-
-### 停止应用
-```bash
-modal app stop tea-order-agent
-```
-
-### 更新代码
-修改代码后重新部署：
-```bash
-modal deploy modal_app.py
-```
-
----
-
-## 故障排除
-
-### ❌ "Secret not found"
-确保在 Modal 控制台创建了名为 `tea-agent-secrets` 的 Secret。
-
-### ❌ "Authentication failed"
-运行 `modal token new` 重新登录。
-
-### ❌ CORS 错误
-后端已配置允许所有来源，检查前端的 API URL 是否正确。
-
----
-
-## 需要帮助？
-
-查看详细部署指南：[vllm-workspace/docs/MODAL_DEPLOYMENT.md](vllm-workspace/docs/MODAL_DEPLOYMENT.md)
-
-Modal 官方文档：https://modal.com/docs
+## Extra Resources
+- Detailed deployment guide: [MODAL_DEPLOYMENT.md](./MODAL_DEPLOYMENT.md)
+- Linux vLLM alternative: `vllm-workspace/linux-deployment/README.md`
+- Logs: `modal app logs tea-order-agent --follow`
+- Update: `modal deploy modal_app.py` after every change.
